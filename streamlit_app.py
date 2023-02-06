@@ -1,38 +1,45 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
+%%writefile app.py
+
 import streamlit as st
+import pandas as pd
+import numpy as np
+import altair as alt
+import json 
+from json import loads
+from kafka import KafkaConsumer
 
-"""
-# Welcome to Streamlit!
+kafka_topic_name = "vsstyjzs-fishai"
+kafka_bootstrap_servers = 'dory-01.srvs.cloudkafka.com:9094'
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+user="vsstyjzs"
+password="s1-tllo707MBX3bbVMXT-c-EcNqH3jSW"
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+consumer=KafkaConsumer(
+    kafka_topic_name,
+    bootstrap_servers=kafka_bootstrap_servers,
+    auto_offset_reset='earliest',
+    # enable_auto_commit=True,
+    # group_id="my_group",\
+    # client_id="my_client",
+    security_protocol="SASL_SSL",\
+    sasl_mechanism="SCRAM-SHA-512",
+    sasl_plain_username=user,\
+    sasl_plain_password =password,\
+    value_deserializer=lambda x: loads(x.decode('utf-8'))
+)
+import pandas as pd
+df=pd.DataFrame(columns=['order_id','TimeStamp','Gross_weight'])
+try:
+  count=0
+  for message in consumer:
+    feed=message.value
+    df.loc[count,:]=feed.split(",")
+    df.TimeStamp=pd.to_datetime(df.TimeStamp)
+    count+=1
+  print(f"Receive {count} message")
+except KeyboardInterrupt:
+  print(f"Receive {count} message")
 
-    Point = namedtuple('Point', 'x y')
-    data = []
-
-    points_per_turn = total_points / num_turns
-
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
-
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+st.write("Hello")
+st.line_chart(df)
